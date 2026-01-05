@@ -2,75 +2,49 @@
 
 import argparse
 import json
-import string
-from nltk.stem import PorterStemmer
-
-stemmer = PorterStemmer()
+from parse_tokens import parse_tokens, contains_token
+from movie_cache import InvertedIndex
 
 
-def get_stop_words():
-    with open("data/stopwords.txt") as f:
-        text = f.read()
-        lines = text.splitlines()
-        return lines
+def get_movies():
+    with open("data/movies.json") as f:
+        data = json.load(f)
+        return data["movies"]
 
 
-def convert_string_to_tokens(str):
-    tokens = str.lower().translate(str.maketrans("", "", string.punctuation)).split()
-    parsedTokens = list(filter(lambda token: token != "", tokens))
-    return parsedTokens
+cacher = InvertedIndex()
 
 
-def containsToken(tokenSet1, tokenSet2):
-    for item in tokenSet1:
-        for item2 in tokenSet2:
-            if item in item2:
-                return True
-    return False
-
-
-def filter_out_stop_words(stop_words, tokens):
-    result = []
+def get_active_doc_ids(tokens):
+    active_doc_ids: set[int] = set()
     for token in tokens:
-        if token not in stop_words:
-            result.append(token)
+        doc_ids = cacher.get_documents(token)
+        for doc_id in doc_ids:
+            if len(active_doc_ids) >= 5:
+                return active_doc_ids
+            active_doc_ids.add(doc_id)
 
-    return result
-
-
-def stem_tokens(tokens):
-    result = []
-    for token in tokens:
-        result.append(stemmer.stem(token))
-
-    return result
-
-
-def parse_tokens(str, stop_words):
-    tokens = convert_string_to_tokens(str)
-    filtered_out_stop_words = filter_out_stop_words(stop_words, tokens)
-    stemmed_tokens = stem_tokens(filtered_out_stop_words)
-
-    return stemmed_tokens
+    return active_doc_ids
 
 
 def handle_search(search):
+    try:
+        cacher.load()
+    except Exception as e:
+        print("please run build command before trying to search")
+        return
     print(f"Searching for: {search}")
-    stop_words = get_stop_words()
-    with open("data/movies.json") as f:
-        data = json.load(f)
-        result = []
-        search_tokens = parse_tokens(search, stop_words)
-        for movie in data["movies"]:
-            movie_tokens = parse_tokens(movie["title"], stop_words)
-            if containsToken(search_tokens, movie_tokens):
-                result.append(movie)
+    search_tokens = parse_tokens(search)
+    active_doc_ids = get_active_doc_ids(search_tokens)
 
-        resultParsed = sorted(result, key=lambda item: item["id"])[:5]
+    for doc_id in active_doc_ids:
+        document = cacher.docmap[doc_id]
+        print(f"{doc_id}. Movie Title {document['title']}")
 
-        for i in range(len(resultParsed)):
-            item = resultParsed[i]
-            print(f"{i + 1}. Movie Title {item['title']}")
+
+def handle_build():
+    cacher.build(get_movies())
+    cacher.save()
 
 
 def main() -> None:
@@ -80,12 +54,15 @@ def main() -> None:
     search_parser = subparsers.add_parser("search", help="Search movies using BM25")
     search_parser.add_argument("query", type=str, help="Search query")
 
+    subparsers.add_parser("build", help="Build movies into cache")
+
     args = parser.parse_args()
 
     match args.command:
         case "search":
             handle_search(args.query)
-            pass
+        case "build":
+            handle_build()
         case _:
             parser.print_help()
 
