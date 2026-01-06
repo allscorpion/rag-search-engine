@@ -14,13 +14,13 @@ def get_movies():
         return data["movies"]
 
 
-cacher = InvertedIndex()
+indexer = InvertedIndex()
 
 
 def get_active_doc_ids(tokens):
     active_doc_ids: set[int] = set()
     for token in tokens:
-        doc_ids = cacher.get_documents(token)
+        doc_ids = indexer.get_documents(token)
         for doc_id in doc_ids:
             if len(active_doc_ids) >= 5:
                 return active_doc_ids
@@ -31,7 +31,7 @@ def get_active_doc_ids(tokens):
 
 def handle_search(search):
     try:
-        cacher.load()
+        indexer.load()
     except Exception as e:
         print("please run build command before trying to search")
         return
@@ -40,22 +40,22 @@ def handle_search(search):
     active_doc_ids = get_active_doc_ids(search_tokens)
 
     for doc_id in active_doc_ids:
-        document = cacher.docmap[doc_id]
+        document = indexer.docmap[doc_id]
         print(f"{doc_id}. Movie Title {document['title']}")
 
 
 def handle_build():
-    cacher.build(get_movies())
-    cacher.save()
+    indexer.build(get_movies())
+    indexer.save()
 
 
 def handle_tf(document_id: int, term: str):
     try:
-        cacher.load()
+        indexer.load()
     except:
         print("please run build command before running this command")
         return
-    tf = cacher.get_tf(document_id, term)
+    tf = indexer.get_tf(document_id, term)
     print(f"{document_id} contains the term {term}, {tf} time(s)")
 
 
@@ -67,8 +67,8 @@ def get_idf(term: str):
 
     token = tokens[0]
 
-    total_doc_count = len(cacher.docmap)
-    term_match_doc_count = len(cacher.get_documents(token))
+    total_doc_count = len(indexer.docmap)
+    term_match_doc_count = len(indexer.get_documents(token))
     idf = math.log((total_doc_count + 1) / (term_match_doc_count + 1))
 
     return idf
@@ -76,7 +76,7 @@ def get_idf(term: str):
 
 def handle_idf(term: str):
     try:
-        cacher.load()
+        indexer.load()
     except:
         print("please run build command before running this command")
         return
@@ -87,12 +87,12 @@ def handle_idf(term: str):
 
 def handle_tfidf(document_id: int, term: str):
     try:
-        cacher.load()
+        indexer.load()
     except:
         print("please run build command before running this command")
         return
 
-    tf = cacher.get_tf(document_id, term)
+    tf = indexer.get_tf(document_id, term)
     idf = get_idf(term)
     tf_idf = tf * idf
 
@@ -101,22 +101,36 @@ def handle_tfidf(document_id: int, term: str):
 
 def handle_bm25_idf(term: str):
     try:
-        cacher.load()
+        indexer.load()
     except:
         print("please run build command before running this command")
         return
-    bm25_idf = cacher.get_bm25_idf(term)
+    bm25_idf = indexer.get_bm25_idf(term)
     print(f"BM25 IDF score of '{term}': {bm25_idf:.2f}")
 
 
 def handle_bm25_tf(document_id: int, term: str, k1: int, b: int):
     try:
-        cacher.load()
+        indexer.load()
     except Exception as e:
         print(f"please run build command before running this command: {e}")
         return
-    bm25_tf = cacher.get_bm25_tf(document_id, term, k1, b)
+    bm25_tf = indexer.get_bm25_tf(document_id, term, k1, b)
     print(f"BM25 TF score of '{term}' in document '{document_id}': {bm25_tf:.2f}")
+
+
+def handle_bm25_search(query: str):
+    try:
+        indexer.load()
+    except Exception as e:
+        print(f"please run build command before running this command: {e}")
+        return
+    results = indexer.bm25_search(query, 5)
+
+    for i, result in enumerate(results):
+        print(
+            f"{i + 1}. ({result[0]["id"]}) {result[0]["title"]} - Score: {result[1]:.2f}"
+        )
 
 
 def main() -> None:
@@ -161,6 +175,11 @@ def main() -> None:
         "b", type=float, nargs="?", default=BM25_B, help="Tunable BM25 b parameter"
     )
 
+    bm25search_parser = subparsers.add_parser(
+        "bm25search", help="Search movies using full BM25 scoring"
+    )
+    bm25search_parser.add_argument("query", type=str, help="Search query")
+
     args = parser.parse_args()
 
     match args.command:
@@ -178,6 +197,8 @@ def main() -> None:
             handle_bm25_idf(args.term)
         case "bm25tf":
             handle_bm25_tf(args.document_id, args.term, args.k1, args.b)
+        case "bm25search":
+            handle_bm25_search(args.query)
         case _:
             parser.print_help()
 

@@ -76,6 +76,35 @@ class InvertedIndex:
         length_norm = 1 - b + b * (doc_length / avg_doc_length)
         return (tf * (k1 + 1)) / (tf + k1 * length_norm)
 
+    def bm25(self, doc_id, term):
+        bm25_tf = self.get_bm25_tf(doc_id, term)
+        bm25_idf = self.get_bm25_idf(term)
+        return bm25_tf * bm25_idf
+
+    def bm25_search(self, query, limit):
+        tokens = parse_tokens(query)
+        scores: dict[int, float] = {}
+
+        for doc_id in self.docmap:
+            sum = 0
+            for token in tokens:
+                bm25_score = self.bm25(doc_id, token)
+                sum += bm25_score
+            scores[doc_id] = sum
+        sorted_scores = dict(
+            sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        )
+
+        top_documents = []
+
+        for doc_id in sorted_scores:
+            sorted_score = sorted_scores[doc_id]
+            doc = self.docmap[doc_id]
+            top_documents.append((doc, sorted_score))
+            if len(top_documents) >= limit:
+                break
+        return top_documents
+
     def save(self):
         Path("cache").mkdir(parents=True, exist_ok=True)
         with open("cache/index.pkl", "wb") as f:
