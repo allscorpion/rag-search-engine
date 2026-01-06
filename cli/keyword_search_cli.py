@@ -3,8 +3,9 @@
 import argparse
 import json
 import math
+from constants import BM25_B, BM25_K1
 from parse_tokens import parse_tokens, contains_token
-from movie_cache import InvertedIndex
+from keyword_search import InvertedIndex
 
 
 def get_movies():
@@ -108,6 +109,16 @@ def handle_bm25_idf(term: str):
     print(f"BM25 IDF score of '{term}': {bm25_idf:.2f}")
 
 
+def handle_bm25_tf(document_id: int, term: str, k1: int, b: int):
+    try:
+        cacher.load()
+    except Exception as e:
+        print(f"please run build command before running this command: {e}")
+        return
+    bm25_tf = cacher.get_bm25_tf(document_id, term, k1, b)
+    print(f"BM25 TF score of '{term}' in document '{document_id}': {bm25_tf:.2f}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -138,6 +149,18 @@ def main() -> None:
         "term", type=str, help="Term to get BM25 IDF score for"
     )
 
+    bm25_tf_parser = subparsers.add_parser(
+        "bm25tf", help="Get BM25 TF score for a given document ID and term"
+    )
+    bm25_tf_parser.add_argument("document_id", type=int, help="Document ID")
+    bm25_tf_parser.add_argument("term", type=str, help="Term to get BM25 TF score for")
+    bm25_tf_parser.add_argument(
+        "k1", type=float, nargs="?", default=BM25_K1, help="Tunable BM25 K1 parameter"
+    )
+    bm25_tf_parser.add_argument(
+        "b", type=float, nargs="?", default=BM25_B, help="Tunable BM25 b parameter"
+    )
+
     args = parser.parse_args()
 
     match args.command:
@@ -153,6 +176,8 @@ def main() -> None:
             handle_tfidf(args.document_id, args.term)
         case "bm25idf":
             handle_bm25_idf(args.term)
+        case "bm25tf":
+            handle_bm25_tf(args.document_id, args.term, args.k1, args.b)
         case _:
             parser.print_help()
 

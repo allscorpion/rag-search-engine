@@ -1,5 +1,6 @@
 from collections import Counter
 import math
+from constants import BM25_B, BM25_K1
 from parse_tokens import parse_tokens
 
 import pickle
@@ -11,10 +12,12 @@ class InvertedIndex:
         self.index: dict[str, set[int]] = {}
         self.docmap = {}
         self.term_frequencies: dict[int, Counter] = {}
+        self.doc_lengths: dict[int, int] = {}
 
     def __add_document(self, doc_id: int, text: str):
         tokens = parse_tokens(text)
         self.term_frequencies[doc_id] = Counter()
+        self.doc_lengths[doc_id] = len(tokens)
 
         for token in tokens:
             if token not in self.index:
@@ -22,6 +25,14 @@ class InvertedIndex:
 
             self.index[token].add(doc_id)
         self.term_frequencies[doc_id].update(tokens)
+
+    def __get_avg_doc_length(self) -> float:
+        if len(self.doc_lengths) == 0:
+            return 0.0
+        total_docs = len(self.doc_lengths)
+        total_length = sum(self.doc_lengths.values())
+
+        return total_length / total_docs
 
     def get_documents(self, term: str) -> list[int]:
         doc_ids = self.index.get(term.lower(), set())
@@ -58,6 +69,13 @@ class InvertedIndex:
 
         return bm25_idf
 
+    def get_bm25_tf(self, doc_id, term, k1=BM25_K1, b=BM25_B):
+        tf = self.get_tf(doc_id, term)
+        avg_doc_length = self.__get_avg_doc_length()
+        doc_length = self.doc_lengths[doc_id]
+        length_norm = 1 - b + b * (doc_length / avg_doc_length)
+        return (tf * (k1 + 1)) / (tf + k1 * length_norm)
+
     def save(self):
         Path("cache").mkdir(parents=True, exist_ok=True)
         with open("cache/index.pkl", "wb") as f:
@@ -69,6 +87,9 @@ class InvertedIndex:
         with open("cache/term_frequencies.pkl", "wb") as f:
             pickle.dump(self.term_frequencies, f)
 
+        with open("cache/doc_lengths.pkl", "wb") as f:
+            pickle.dump(self.doc_lengths, f)
+
     def load(self):
         with open("cache/index.pkl", "rb") as f:
             self.index = pickle.load(f)
@@ -76,3 +97,5 @@ class InvertedIndex:
             self.docmap = pickle.load(f)
         with open("cache/term_frequencies.pkl", "rb") as f:
             self.term_frequencies = pickle.load(f)
+        with open("cache/doc_lengths.pkl", "rb") as f:
+            self.doc_lengths = pickle.load(f)
