@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-import json
 import math
 from constants import BM25_B, BM25_K1
-from parse_tokens import parse_tokens, contains_token
+from parse_tokens import parse_tokens
 from keyword_search import InvertedIndex
-
-
-def get_movies():
-    with open("data/movies.json") as f:
-        data = json.load(f)
-        return data["movies"]
+from utils import get_movies
 
 
 indexer = InvertedIndex()
