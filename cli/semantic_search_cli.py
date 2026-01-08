@@ -3,6 +3,7 @@
 import argparse
 
 from lib.semantic_search import (
+    chunk_text,
     embed_query_text,
     search_documents,
     verify_embeddings,
@@ -39,6 +40,15 @@ def main():
         "--limit", type=int, nargs="?", default=5, help="Top x results to show"
     )
 
+    chunk_parser = subparsers.add_parser("chunk", help="Chunk the text into groups")
+    chunk_parser.add_argument("text", type=str, help="Text to query")
+    chunk_parser.add_argument(
+        "--chunk-size", type=int, nargs="?", default=200, help="Chunk size"
+    )
+    chunk_parser.add_argument(
+        "--overlap", type=int, nargs="?", default=0, help="Overlap amount"
+    )
+
     args = parser.parse_args()
 
     match args.command:
@@ -52,6 +62,8 @@ def main():
             embed_query_text(args.query)
         case "search":
             search_documents(args.query, args.limit)
+        case "chunk":
+            chunk_text(args.text, args.chunk_size, args.overlap)
         case _:
             parser.print_help()
 

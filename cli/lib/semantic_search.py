@@ -134,3 +134,20 @@ def search_documents(query, limit):
         print(f"{i + 1}. {result["title"]} (score: {result["score"]})")
         print(f"   {result['description'][:100]}...")
         print()
+
+
+def chunk_text(text: str, chunk_size: int, overlap: int):
+    words = text.split()
+    groups = []
+    for i in range(0, len(words), chunk_size):
+        inner_i = i
+        is_first_item = inner_i == 0
+
+        if not is_first_item:
+            inner_i = inner_i - overlap
+
+        groups.append(" ".join(words[inner_i : inner_i + chunk_size]))
+
+    print(f"Chunking {len(text)} characters")
+    for i in range(len(groups)):
+        print(f"{i + 1}. {groups[i]}")
