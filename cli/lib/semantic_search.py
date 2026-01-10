@@ -133,7 +133,7 @@ class ChunkedSemanticSearch(SemanticSearch):
         ):
             self.chunk_embeddings = np.load("cache/chunk_embeddings.npy")
             with open("cache/chunk_metadata.json", "r") as f:
-                self.chunk_metadata = json.load(f)
+                self.chunk_metadata = json.load(f)["chunks"]
 
             return self.chunk_embeddings
 
@@ -150,11 +150,16 @@ class ChunkedSemanticSearch(SemanticSearch):
                 "No documents loaded. Call `load_or_create_embeddings` first."
             )
 
+        if self.chunk_metadata is None or len(self.chunk_metadata) == 0:
+            raise ValueError(
+                "No chunk_metadata loaded. Call `load_or_create_embeddings` first."
+            )
+
         embedding = self.generate_embedding(query)
         chunk_scores = []
         for i in range(len(self.chunk_embeddings)):
             document_embedding = self.chunk_embeddings[i]
-            chunk_metadata = self.chunk_metadata["chunks"][i]  # type: ignore
+            chunk_metadata = self.chunk_metadata[i]
             similarity_score = cosine_similarity(embedding, document_embedding)
             chunk_scores.append(
                 {
@@ -259,20 +264,37 @@ def chunk_text(text: str, chunk_size: int, overlap: int):
 
 
 def semantic_chunk(text: str, max_chunk_size: int, overlap: int):
-    sentences = re.split(r"(?<=[.!?])\s+", text)
+    parsed_text = text.strip()
 
-    groups = []
+    if not parsed_text:
+        return []
+
+    sentences = re.split(r"(?<=[.!?])\s+", parsed_text)
+
+    if len(sentences) == 1 and not text.endswith((".", "!", "?")):
+        sentences = [text]
+
+    chunks = []
 
     i = 0
 
     while i < len(sentences):
         chunk_sentences = sentences[i : i + max_chunk_size]
-        if groups and len(chunk_sentences) <= overlap:
+        if chunks and len(chunk_sentences) <= overlap:
             break
-        groups.append(" ".join(chunk_sentences))
+
+        cleaned_sentences = []
+        for chunk_sentence in chunk_sentences:
+            cleaned_sentences.append(chunk_sentence.strip())
+        if not cleaned_sentences:
+            continue
+
+        chunk = " ".join(cleaned_sentences)
+        chunks.append(chunk)
+
         i += max_chunk_size - overlap
 
-    return groups
+    return chunks
 
 
 def semantic_chunk_text(text: str, max_chunk_size: int, overlap: int):
@@ -301,5 +323,5 @@ def search_chunked(query: str, limit: int):
         title = result["title"]
         score = result["score"]
         description = result["description"]
-        print(f"\n{i}. {title} (score: {score:.4f})")
+        print(f"\n{i + 1}. {title} (score: {score:.4f})")
         print(f"   {description}...")
