@@ -1,6 +1,6 @@
 import argparse
 
-from hybrid_search import normalize_scores, weighted_search
+from hybrid_search import normalize_scores, rrf_search, weighted_search
 
 
 def main() -> None:
@@ -31,6 +31,23 @@ def main() -> None:
         help="How many results to bring back",
     )
 
+    rrf_search_parser = subparsers.add_parser(
+        "rrf-search", help="Start a search that has weighted scores"
+    )
+    rrf_search_parser.add_argument("query", type=str, help="Text to query")
+    rrf_search_parser.add_argument(
+        "-k",
+        type=int,
+        default=60,
+        help="How weighted the query should be",
+    )
+    rrf_search_parser.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="How many results to bring back",
+    )
+
     args = parser.parse_args()
 
     match args.command:
@@ -48,6 +65,17 @@ def main() -> None:
                 print(f"   Hybrid Score: {result["hybrid_score"]:.4f}")
                 print(
                     f"   BM25: {result["keyword_score"]:.4f}, Semantic: {result["semantic_score"]:.4f}"
+                )
+                print(f"   {result["description"][:100]}")
+        case "rrf-search":
+            results = rrf_search(args.query, args.k, args.limit)
+
+            for i, id in enumerate(results):
+                result = results[id]
+                print(f"{i + 1}. {result["title"]}")
+                print(f"   RRF Score: {result["rrf_score"]:.4f}")
+                print(
+                    f"   BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}"
                 )
                 print(f"   {result["description"][:100]}")
         case _:
