@@ -83,6 +83,7 @@ class SemanticSearch:
             output.append(
                 {
                     "score": sorted_result[0],
+                    "id": sorted_result[1]["id"],
                     "title": sorted_result[1]["title"],
                     "description": sorted_result[1]["description"],
                 }
