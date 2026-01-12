@@ -47,6 +47,12 @@ def main() -> None:
         default=5,
         help="How many results to bring back",
     )
+    rrf_search_parser.add_argument(
+        "--enhance",
+        type=str,
+        choices=["spell"],
+        help="Query enhancement method",
+    )
 
     args = parser.parse_args()
 
@@ -68,7 +74,7 @@ def main() -> None:
                 )
                 print(f"   {result["description"][:100]}")
         case "rrf-search":
-            results = rrf_search(args.query, args.k, args.limit)
+            results = rrf_search(args.query, args.k, args.limit, args.enhance)
 
             for i, id in enumerate(results):
                 result = results[id]

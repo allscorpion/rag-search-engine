@@ -1,5 +1,6 @@
 import os
 
+from lib.gemini import fix_spelling_mistakes
 from utils import get_movies
 from keyword_search import InvertedIndex
 from lib.semantic_search import ChunkedSemanticSearch
@@ -163,7 +164,15 @@ def weighted_search(query: str, alpha: float, limit: int):
     return hybrid_search.weighted_search(query, alpha, limit)
 
 
-def rrf_search(query, k, limit):
+def rrf_search(query, k, limit, enhance):
     documents = get_movies()
     hybrid_search = HybridSearch(documents)
+
+    if enhance == "spell":
+        method = "spell"
+        enhanced_query = fix_spelling_mistakes(query)
+        if query != enhanced_query:
+            print(f"Enhanced query ({method}): '{query}' -> '{enhanced_query}'\n")
+            query = enhanced_query
+
     return hybrid_search.rrf_search(query, k, limit)
