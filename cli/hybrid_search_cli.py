@@ -50,8 +50,14 @@ def main() -> None:
     rrf_search_parser.add_argument(
         "--enhance",
         type=str,
-        choices=["spell"],
+        choices=["spell", "rewrite", "expand"],
         help="Query enhancement method",
+    )
+    rrf_search_parser.add_argument(
+        "--rerank-method",
+        type=str,
+        choices=["individual"],
+        help="Method to rerank",
     )
 
     args = parser.parse_args()
@@ -74,11 +80,16 @@ def main() -> None:
                 )
                 print(f"   {result["description"][:100]}")
         case "rrf-search":
-            results = rrf_search(args.query, args.k, args.limit, args.enhance)
+            results = rrf_search(
+                args.query, args.k, args.limit, args.enhance, args.rerank_method
+            )
 
             for i, id in enumerate(results):
                 result = results[id]
                 print(f"{i + 1}. {result["title"]}")
+                if result.get("rerank_score"):
+                    print(f"   Rerank Score: {result["rerank_score"]:.4f}/10")
+
                 print(f"   RRF Score: {result["rrf_score"]:.4f}")
                 print(
                     f"   BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}"

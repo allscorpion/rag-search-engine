@@ -1,6 +1,12 @@
 import os
+from time import sleep
 
-from lib.gemini import fix_spelling_mistakes
+from lib.llm_helpers import (
+    expand_query,
+    fix_spelling_mistakes,
+    rerank_document,
+    rewrite_query,
+)
 from utils import get_movies
 from keyword_search import InvertedIndex
 from lib.semantic_search import ChunkedSemanticSearch
@@ -164,15 +170,44 @@ def weighted_search(query: str, alpha: float, limit: int):
     return hybrid_search.weighted_search(query, alpha, limit)
 
 
-def rrf_search(query, k, limit, enhance):
+def rrf_search(query, k, limit, enhance, rerank_method):
     documents = get_movies()
     hybrid_search = HybridSearch(documents)
 
-    if enhance == "spell":
-        method = "spell"
-        enhanced_query = fix_spelling_mistakes(query)
-        if query != enhanced_query:
-            print(f"Enhanced query ({method}): '{query}' -> '{enhanced_query}'\n")
-            query = enhanced_query
+    match enhance:
+        case "spell":
+            enhanced_query = fix_spelling_mistakes(query)
+            if query != enhanced_query:
+                print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
+                query = enhanced_query
 
-    return hybrid_search.rrf_search(query, k, limit)
+        case "rewrite":
+            enhanced_query = rewrite_query(query)
+            if query != enhanced_query:
+                print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
+                query = enhanced_query
+        case "expand":
+            enhanced_query = expand_query(query)
+            if query != enhanced_query:
+                print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
+                query = enhanced_query
+
+    if rerank_method == "individual":
+        max_api_limit = 10
+        limit = max(max_api_limit, limit * 5)
+
+    results = hybrid_search.rrf_search(query, k, limit)
+
+    if rerank_method == "individual":
+        for id in results:
+            document = results[id]
+            results[id]["rerank_score"] = rerank_document(query, document)
+            sleep(3)
+
+        results = dict(
+            sorted(
+                results.items(), key=lambda item: item[1]["rerank_score"], reverse=True
+            )[:limit]
+        )
+
+    return results
