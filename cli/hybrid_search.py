@@ -2,6 +2,8 @@ import json
 import os
 from time import sleep
 
+from sentence_transformers import CrossEncoder
+
 from lib.llm_helpers import (
     expand_query,
     fix_spelling_mistakes,
@@ -196,8 +198,7 @@ def rrf_search(query, k, limit, enhance, rerank_method):
                 query = enhanced_query
 
     if rerank_method != None:
-        max_api_limit = 10
-        limit = max(max_api_limit, limit * 5)
+        limit = limit * 5
 
     results = hybrid_search.rrf_search(query, k, limit)
 
@@ -226,6 +227,26 @@ def rrf_search(query, k, limit, enhance, rerank_method):
                 sorted(
                     results.items(),
                     key=lambda item: item[1]["rerank_rank"],
+                )[:original_limit]
+            )
+        case "cross_encoder":
+            pairs = []
+            cross_encoder = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L2-v2")
+            for id in results:
+                doc = results[id]
+                pairs.append(
+                    [query, f"{doc.get('title', '')} - {doc.get('document', '')}"]
+                )
+            scores = cross_encoder.predict(pairs)
+            for i, id in enumerate(results):
+                doc = results[id]
+                results[id]["cross_enconder_score"] = scores[i]
+
+            results = dict(
+                sorted(
+                    results.items(),
+                    key=lambda item: item[1]["cross_enconder_score"],
+                    reverse=True,
                 )[:original_limit]
             )
 
