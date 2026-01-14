@@ -56,7 +56,7 @@ def main() -> None:
     rrf_search_parser.add_argument(
         "--rerank-method",
         type=str,
-        choices=["individual"],
+        choices=["individual", "batch"],
         help="Method to rerank",
     )
 
@@ -87,6 +87,9 @@ def main() -> None:
             for i, id in enumerate(results):
                 result = results[id]
                 print(f"{i + 1}. {result["title"]}")
+                if result.get("rerank_rank"):
+                    print(f"   Rerank Rank: {result["rerank_rank"]}")
+
                 if result.get("rerank_score"):
                     print(f"   Rerank Score: {result["rerank_score"]:.4f}/10")
 

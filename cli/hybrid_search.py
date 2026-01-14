@@ -1,3 +1,4 @@
+import json
 import os
 from time import sleep
 
@@ -5,6 +6,7 @@ from lib.llm_helpers import (
     expand_query,
     fix_spelling_mistakes,
     rerank_document,
+    rerank_document_batch,
     rewrite_query,
 )
 from utils import get_movies
@@ -173,6 +175,7 @@ def weighted_search(query: str, alpha: float, limit: int):
 def rrf_search(query, k, limit, enhance, rerank_method):
     documents = get_movies()
     hybrid_search = HybridSearch(documents)
+    original_limit = limit
 
     match enhance:
         case "spell":
@@ -192,22 +195,38 @@ def rrf_search(query, k, limit, enhance, rerank_method):
                 print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
                 query = enhanced_query
 
-    if rerank_method == "individual":
+    if rerank_method != None:
         max_api_limit = 10
         limit = max(max_api_limit, limit * 5)
 
     results = hybrid_search.rrf_search(query, k, limit)
 
-    if rerank_method == "individual":
-        for id in results:
-            document = results[id]
-            results[id]["rerank_score"] = rerank_document(query, document)
-            sleep(3)
+    match rerank_method:
+        case "individual":
+            for id in results:
+                document = results[id]
+                results[id]["rerank_score"] = rerank_document(query, document)
+                sleep(3)
 
-        results = dict(
-            sorted(
-                results.items(), key=lambda item: item[1]["rerank_score"], reverse=True
-            )[:limit]
-        )
+            results = dict(
+                sorted(
+                    results.items(),
+                    key=lambda item: item[1]["rerank_score"],
+                    reverse=True,
+                )[:original_limit]
+            )
+        case "batch":
+            new_order_str = rerank_document_batch(query, json.dumps(results))
+            new_order = json.loads(new_order_str)
+            for id in results:
+                rerank_rank = new_order.index(id)
+                results[id]["rerank_rank"] = rerank_rank + 1
+
+            results = dict(
+                sorted(
+                    results.items(),
+                    key=lambda item: item[1]["rerank_rank"],
+                )[:original_limit]
+            )
 
     return results
