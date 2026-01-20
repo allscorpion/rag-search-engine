@@ -5,6 +5,7 @@ from time import sleep
 from sentence_transformers import CrossEncoder
 
 from lib.llm_helpers import (
+    evaluate_results,
     expand_query,
     fix_spelling_mistakes,
     rerank_document,
@@ -174,7 +175,7 @@ def weighted_search(query: str, alpha: float, limit: int):
     return hybrid_search.weighted_search(query, alpha, limit)
 
 
-def rrf_search(query, k, limit, enhance, rerank_method):
+def rrf_search(query, k, limit, enhance=None, rerank_method=None, evaluate=False):
     documents = get_movies()
     hybrid_search = HybridSearch(documents)
     original_limit = limit
@@ -201,6 +202,9 @@ def rrf_search(query, k, limit, enhance, rerank_method):
         limit = limit * 5
 
     results = hybrid_search.rrf_search(query, k, limit)
+
+    print("results before reranking")
+    print_results(results)
 
     match rerank_method:
         case "individual":
@@ -250,4 +254,32 @@ def rrf_search(query, k, limit, enhance, rerank_method):
                 )[:original_limit]
             )
 
+    if evaluate:
+        relevant_scores = evaluate_results(query, results)
+        for i, key in enumerate(results):
+            relevant_score = relevant_scores[i]
+            result = results[key]
+
+            print(f"{i + 1}. {result["title"]}: {relevant_score}/3")
+
     return results
+
+
+def print_results(results):
+    for i, id in enumerate(results):
+        result = results[id]
+        print(f"{i + 1}. {result["title"]}")
+        if result.get("rerank_rank"):
+            print(f"   Cross Encoder Score: {result["rerank_rank"]}")
+
+        if result.get("cross_enconder_score"):
+            print(f"   Rerank Rank: {result["cross_enconder_score"]}")
+
+        if result.get("rerank_score"):
+            print(f"   Rerank Score: {result["rerank_score"]:.4f}/10")
+
+        print(f"   RRF Score: {result["rrf_score"]:.4f}")
+        print(
+            f"   BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}"
+        )
+        print(f"   {result["description"][:100]}")

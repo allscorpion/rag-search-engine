@@ -1,6 +1,6 @@
 import argparse
 
-from hybrid_search import normalize_scores, rrf_search, weighted_search
+from hybrid_search import normalize_scores, print_results, rrf_search, weighted_search
 
 
 def main() -> None:
@@ -59,6 +59,11 @@ def main() -> None:
         choices=["individual", "batch", "cross_encoder"],
         help="Method to rerank",
     )
+    rrf_search_parser.add_argument(
+        "--evaluate",
+        action="store_true",
+        help="Method to rerank",
+    )
 
     args = parser.parse_args()
 
@@ -81,26 +86,15 @@ def main() -> None:
                 print(f"   {result["description"][:100]}")
         case "rrf-search":
             results = rrf_search(
-                args.query, args.k, args.limit, args.enhance, args.rerank_method
+                args.query,
+                args.k,
+                args.limit,
+                args.enhance,
+                args.rerank_method,
+                args.evaluate,
             )
 
-            for i, id in enumerate(results):
-                result = results[id]
-                print(f"{i + 1}. {result["title"]}")
-                if result.get("rerank_rank"):
-                    print(f"   Cross Encoder Score: {result["rerank_rank"]}")
-
-                if result.get("cross_enconder_score"):
-                    print(f"   Rerank Rank: {result["cross_enconder_score"]}")
-
-                if result.get("rerank_score"):
-                    print(f"   Rerank Score: {result["rerank_score"]:.4f}/10")
-
-                print(f"   RRF Score: {result["rrf_score"]:.4f}")
-                print(
-                    f"   BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}"
-                )
-                print(f"   {result["description"][:100]}")
+            print_results(results)
         case _:
             parser.print_help()
 
