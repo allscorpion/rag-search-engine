@@ -160,3 +160,133 @@ Return ONLY the scores in the same order you were given the documents. Return a 
         return ""
 
     return json.loads(content.text.replace('"', ""))
+
+
+def rag_response(query: str, results: dict[int, dict]):
+    formatted_results = []
+
+    for key in results:
+        doc = results[key]
+        formatted_results.append(
+            {"title": doc["title"], "description": doc["description"][:100]}
+        )
+
+    content = client.models.generate_content(
+        model=model_name,
+        contents=f"""Answer the question or provide information based on the provided documents. This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+
+Query: {query}
+
+Documents:
+{formatted_results}
+
+Provide a comprehensive answer that addresses the query:""",
+    )
+    if not content.text:
+        return ""
+
+    return content.text.replace('"', "")
+
+
+def summarize_response(query: str, results: dict[int, dict]):
+    formatted_results = []
+
+    for key in results:
+        doc = results[key]
+        formatted_results.append(
+            {"title": doc["title"], "description": doc["description"][:100]}
+        )
+
+    content = client.models.generate_content(
+        model=model_name,
+        contents=f"""
+Provide information useful to this query by synthesizing information from multiple search results in detail.
+The goal is to provide comprehensive information so that users know what their options are.
+Your response should be information-dense and concise, with several key pieces of information about the genre, plot, etc. of each movie.
+This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+Query: {query}
+Search Results:
+{formatted_results}
+Provide a comprehensive 3-4 sentence answer that combines information from multiple sources:
+""",
+    )
+    if not content.text:
+        return ""
+
+    return content.text.replace('"', "")
+
+
+def citation_response(query: str, results: dict[int, dict]):
+    documents = []
+
+    for key in results:
+        doc = results[key]
+        documents.append(
+            {"title": doc["title"], "description": doc["description"][:100]}
+        )
+
+    prompt = f"""Answer the question or provide information based on the provided documents.
+
+This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+
+If not enough information is available to give a good answer, say so but give as good of an answer as you can while citing the sources you have.
+
+Query: {query}
+
+Documents:
+{documents}
+
+Instructions:
+- Provide a comprehensive answer that addresses the query
+- Cite sources using [1], [2], etc. format when referencing information
+- If sources disagree, mention the different viewpoints
+- If the answer isn't in the documents, say "I don't have enough information"
+- Be direct and informative
+
+Answer:"""
+
+    content = client.models.generate_content(
+        model=model_name,
+        contents=prompt,
+    )
+    if not content.text:
+        return ""
+
+    return content.text.replace('"', "")
+
+
+def question_response(query: str, results: dict[int, dict]):
+    documents = []
+
+    for key in results:
+        doc = results[key]
+        documents.append({"title": doc["title"], "description": doc["description"]})
+
+    prompt = f"""Answer the following question based on the provided documents.
+
+    Question: {query}
+
+    Documents:
+    {documents}
+
+    General instructions:
+    - Answer directly and concisely
+    - Use only information from the documents
+    - If the answer isn't in the documents, say "I don't have enough information"
+    - Cite sources when possible
+
+    Guidance on types of questions:
+    - Factual questions: Provide a direct answer
+    - Analytical questions: Compare and contrast information from the documents
+    - Opinion-based questions: Acknowledge subjectivity and provide a balanced view
+
+    Answer:"""
+
+    content = client.models.generate_content(
+        model=model_name,
+        contents=prompt,
+    )
+    if not content.text:
+        return ""
+
+    return content.text.replace('"', "")

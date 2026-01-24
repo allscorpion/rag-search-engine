@@ -175,7 +175,7 @@ def weighted_search(query: str, alpha: float, limit: int):
     return hybrid_search.weighted_search(query, alpha, limit)
 
 
-def rrf_search(query, k, limit, enhance=None, rerank_method=None, evaluate=False):
+def rrf_search(query, k=60, limit=5, enhance=None, rerank_method=None, evaluate=False):
     documents = get_movies()
     hybrid_search = HybridSearch(documents)
     original_limit = limit
